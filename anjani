@@ -1,0 +1,195 @@
+        public Shop3DContext Context { get; set; }
+
+        #region Shop3DRepository - Constructor
+        public AnjaniRepository(Shop3DContext context)
+        {
+            Context = context;
+        }
+        #endregion
+
+        #region GetProductsByCategory
+        public List<Product> GetProductsByCategory(int categoryId)
+        {
+            //To Do: Implement appropriate logic and change the return statement as per your logic
+            List<Product> products = new List<Product>();
+            try
+            {
+                products = (from product in Context.Products
+                            where product.CategoryId == categoryId
+                            select product).ToList();
+            }
+            catch (Exception ex)
+            {
+                products = new List<Product>();
+                Console.WriteLine(ex.Message);
+            }
+            return products;
+        }
+        #endregion
+
+        #region FilterProductsByPriceRange - Filters products by price range
+        public List<Product> FilterProductsByPriceRange(decimal minPrice, decimal maxPrice)
+        {
+            List<Product> products = new List<Product>();
+            try
+            {
+                var parameters = new SqlParameter[]
+                {
+                    new SqlParameter("@MinPrice", minPrice),
+                    new SqlParameter("@MaxPrice", maxPrice)
+                };
+
+                products = Context.Products
+                    .FromSqlRaw("EXEC sp_FilterProductsByPriceRange @MinPrice, @MaxPrice", parameters)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                products = new List<Product>();
+            }
+            return products;
+        }
+        #endregion
+
+        #region AddProduct - Adds a new product
+        public int AddProduct(Product productObj)
+        {
+            int productId = 0;
+            try
+            {
+                var parameters = new SqlParameter[]
+                {
+                    new SqlParameter("@Name", productObj.Name),
+                    new SqlParameter("@Description", productObj.Description ?? (object)DBNull.Value),
+                    new SqlParameter("@Price", productObj.Price),
+                    new SqlParameter("@CategoryID", productObj.CategoryId),
+                    new SqlParameter("@ModelURL", productObj.ModelUrl),
+                    new SqlParameter("@ThumbnailURL", productObj.ThumbnailUrl ?? (object)DBNull.Value),
+                    new SqlParameter("@Quantity", productObj.Quantity)
+                };
+
+                var result = Context.Database
+                    .ExecuteSqlRaw("EXEC sp_AddProduct @Name, @Description, @Price, @CategoryID, @ModelURL, @ThumbnailURL, @Quantity",
+                                  parameters);
+
+                if (result > 0)
+                {
+                    // Get the last inserted product ID
+                    productId = Context.Products.Max(p => p.ProductId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                productId = 0;
+            }
+            return productId;
+        }
+        #endregion
+
+        #region UpdateProduct - Updates a product
+        public bool UpdateProduct(Product productObj)
+        {
+            bool status = false;
+            try
+            {
+                var parameters = new SqlParameter[]
+                {
+                    new SqlParameter("@ProductID", productObj.ProductId),
+                    new SqlParameter("@Name", productObj.Name),
+                    new SqlParameter("@Description", productObj.Description ?? (object)DBNull.Value),
+                    new SqlParameter("@Price", productObj.Price),
+                    new SqlParameter("@CategoryID", productObj.CategoryId),
+                    new SqlParameter("@ModelURL", productObj.ModelUrl),
+                    new SqlParameter("@ThumbnailURL", productObj.ThumbnailUrl ?? (object)DBNull.Value),
+                    new SqlParameter("@Quantity", productObj.Quantity)
+                };
+
+                var result = Context.Database
+                    .ExecuteSqlRaw("EXEC sp_UpdateProduct @ProductID, @Name, @Description, @Price, @CategoryID, @ModelURL, @ThumbnailURL, @Quantity",
+                                  parameters);
+
+                status = result > 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                status = false;
+            }
+            return status;
+        }
+        #endregion
+
+        #region DeleteProduct - Deletes a product
+        public bool DeleteProduct(int productId)
+        {
+            bool status = false;
+            try
+            {
+                var parameter = new SqlParameter("@ProductID", productId);
+
+                var result = Context.Database
+                    .ExecuteSqlRaw("EXEC sp_DeleteProduct @ProductID", parameter);
+
+                status = result > 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                status = false;
+            }
+            return status;
+        }
+        #endregion
+    }
+}
+
+
+
+
+        static Shop3DContext context;
+        static AnjaniRepository repository;
+
+        static Program()
+        {
+            context = new Shop3DContext();
+            repository = new AnjaniRepository(context);
+        }
+
+        static void Main(string[] args)
+        {
+            //Console.WriteLine("----------------------------------------");
+            //Console.WriteLine("Get All Products :");
+
+            //List<Product> products = repository.GetAllProducts();
+
+            //foreach (Product product in products)
+            //{
+            //    Console.WriteLine(product.ProductId +"  "+ product.Name);
+            //}
+
+            var repository = new AnjaniRepository(context);
+            int categoryId = 30;
+            List<Product> prod = repository.GetProductsByCategory(categoryId);
+
+            if (prod.Count == 0)
+            {
+                Console.WriteLine("no products available under the category= " +categoryId);
+            }
+            else
+            {
+                Console.WriteLine("{0,-15}{1,-30}{2,-15}{}3,-10}{4}",
+                    "product id","product name","category Id","Price","quantity available");
+                Console.WriteLine("_____________________________________________________________________");
+
+                foreach(var p in prod)
+                {
+                    Console.WriteLine("{0,-15}{1,-30}{2,-15}{}3,-10}{4}",
+                        p.ProductId,p.Name,p.CategoryId,p.Price,p.Quantity);
+                }
+            }
+
+        }
+    }
+}
